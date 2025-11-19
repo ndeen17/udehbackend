@@ -10,6 +10,9 @@
     "build:watch": "tsc --watch",
     "clean": "rimraf dist",
     "seed": "ts-node src/seeds/seedData.ts",
+    "seed:artwork": "ts-node src/seeds/seedArtworkShoes.ts",
+    "seed:cloudinary": "ts-node src/seeds/seedCloudinary.ts",
+    "migrate:images": "ts-node src/utils/migrateImages.ts",
     "seed:dev": "nodemon --exec ts-node src/seeds/seedData.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -34,6 +37,7 @@
     "@types/node": "^24.10.1",
     "@types/nodemailer": "^7.0.4",
     "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.8.0",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

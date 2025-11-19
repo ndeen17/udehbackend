@@ -514,17 +514,32 @@ class AdminController {
 
       const newImages: IProductImage[] = [];
 
+      // Import Cloudinary uploader
+      const { uploadToCloudinary } = await import('../config/cloudinary');
+
       // Handle different file upload formats
       if (Array.isArray(files)) {
         // Single field array upload
-        files.forEach((file, index) => {
-          newImages.push({
-            url: `/uploads/products/${file.filename}`,
-            altText: `${product.name} image ${product.images.length + index + 1}`,
-            displayOrder: product.images.length + index,
-            isPrimary: product.images.length === 0 && index === 0
-          });
-        });
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          try {
+            // Upload to Cloudinary
+            const uploadResult = await uploadToCloudinary(file.buffer, {
+              folder: 'udehglobal/products',
+              filename: `${product.slug}-${Date.now()}-${i}`,
+            });
+
+            newImages.push({
+              url: uploadResult.secure_url,
+              altText: `${product.name} image ${product.images.length + i + 1}`,
+              displayOrder: product.images.length + i,
+              isPrimary: product.images.length === 0 && i === 0
+            });
+          } catch (uploadError) {
+            console.error('Error uploading to Cloudinary:', uploadError);
+            throw new Error(`Failed to upload image ${i + 1}`);
+          }
+        }
       } else {
         // Multiple field upload (primaryImage, additionalImages)
         const primaryImages = files.primaryImage || [];
@@ -532,26 +547,47 @@ class AdminController {
 
         // Process primary image
         if (primaryImages.length > 0) {
-          // Set existing primary images to non-primary
-          product.images.forEach(img => img.isPrimary = false);
-          
-          newImages.push({
-            url: `/uploads/products/${primaryImages[0].filename}`,
-            altText: `${product.name} primary image`,
-            displayOrder: -1, // Primary image gets highest priority
-            isPrimary: true
-          });
+          try {
+            const uploadResult = await uploadToCloudinary(primaryImages[0].buffer, {
+              folder: 'udehglobal/products',
+              filename: `${product.slug}-primary-${Date.now()}`,
+            });
+
+            // Set existing primary images to non-primary
+            product.images.forEach(img => img.isPrimary = false);
+            
+            newImages.push({
+              url: uploadResult.secure_url,
+              altText: `${product.name} primary image`,
+              displayOrder: -1, // Primary image gets highest priority
+              isPrimary: true
+            });
+          } catch (uploadError) {
+            console.error('Error uploading primary image:', uploadError);
+            throw new Error('Failed to upload primary image');
+          }
         }
 
         // Process additional images
-        additionalImages.forEach((file, index) => {
-          newImages.push({
-            url: `/uploads/products/${file.filename}`,
-            altText: `${product.name} image ${product.images.length + index + 1}`,
-            displayOrder: product.images.length + index,
-            isPrimary: false
-          });
-        });
+        for (let i = 0; i < additionalImages.length; i++) {
+          const file = additionalImages[i];
+          try {
+            const uploadResult = await uploadToCloudinary(file.buffer, {
+              folder: 'udehglobal/products',
+              filename: `${product.slug}-${Date.now()}-${i}`,
+            });
+
+            newImages.push({
+              url: uploadResult.secure_url,
+              altText: `${product.name} image ${product.images.length + i + 1}`,
+              displayOrder: product.images.length + i,
+              isPrimary: false
+            });
+          } catch (uploadError) {
+            console.error(`Error uploading additional image ${i + 1}:`, uploadError);
+            throw new Error(`Failed to upload additional image ${i + 1}`);
+          }
+        }
       }
 
       // Add new images to product

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Product } from '../models/Product';
 import { Category } from '../models/Category';
 import { sendSuccessResponse, sendErrorResponse } from '../utils/helpers';
+import { transformProducts, transformProduct } from '../utils/productTransformer';
 import mongoose from 'mongoose';
 
 class ProductController {
@@ -82,7 +83,7 @@ class ProductController {
       const pages = Math.ceil(total / limit);
 
       const responseData = {
-        products,
+        products: transformProducts(products),
         total,
         pages,
         currentPage: page,
@@ -132,7 +133,7 @@ class ProductController {
       const pages = Math.ceil(total / limit);
 
       const responseData = {
-        products,
+        products: transformProducts(products),
         total,
         pages,
         currentPage: page,
@@ -159,7 +160,7 @@ class ProductController {
         .limit(limit)
         .lean();
 
-      sendSuccessResponse(res, products, 'Featured products retrieved successfully');
+      sendSuccessResponse(res, transformProducts(products), 'Featured products retrieved successfully');
     } catch (error: any) {
       console.error('Get featured products error:', error);
       sendErrorResponse(res, 'Failed to get featured products', 500);
@@ -179,7 +180,7 @@ class ProductController {
         return;
       }
 
-      sendSuccessResponse(res, product, 'Product retrieved successfully');
+      sendSuccessResponse(res, transformProduct(product), 'Product retrieved successfully');
     } catch (error: any) {
       console.error('Get product error:', error);
       sendErrorResponse(res, 'Failed to get product', 500);
@@ -246,7 +247,7 @@ class ProductController {
         .limit(limit)
         .lean();
 
-      sendSuccessResponse(res, relatedProducts, 'Related products retrieved successfully');
+      sendSuccessResponse(res, transformProducts(relatedProducts), 'Related products retrieved successfully');
     } catch (error: any) {
       console.error('Get related products error:', error);
       sendErrorResponse(res, 'Failed to get related products', 500);

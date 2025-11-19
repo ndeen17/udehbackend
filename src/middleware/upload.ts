@@ -1,27 +1,9 @@
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
 
-// Ensure uploads directory exists
-const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'products');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Configure multer storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    // Generate unique filename: timestamp-random-originalname
-    const timestamp = Date.now();
-    const random = Math.round(Math.random() * 1E9);
-    const extension = path.extname(file.originalname);
-    const filename = `${timestamp}-${random}${extension}`;
-    cb(null, filename);
-  }
-});
+// Configure multer to use memory storage (for Cloudinary uploads)
+// Files will be stored in memory as Buffer objects
+const storage = multer.memoryStorage();
 
 // File filter for images only
 const fileFilter = (req: any, file: any, cb: any) => {
@@ -57,21 +39,8 @@ export const uploadProductImages = upload.fields([
   { name: 'additionalImages', maxCount: 9 }
 ]);
 
-// Helper function to get image URL from filename
-export const getImageUrl = (filename: string): string => {
-  return `/uploads/products/${filename}`;
-};
-
-// Helper function to delete image file
-export const deleteImageFile = (filename: string): void => {
-  try {
-    const filePath = path.join(uploadDir, filename);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-  } catch (error) {
-    console.error('Error deleting image file:', error);
-  }
-};
+// Note: Image URLs are now handled by Cloudinary
+// The uploadToCloudinary function in config/cloudinary.ts will return the full Cloudinary URL
+// No need for getImageUrl or deleteImageFile helpers here - those are in cloudinary.ts
 
 export default upload;

@@ -7,6 +7,7 @@ import compression from 'compression';
 import path from 'path';
 import connectDB from './config/database';
 import { apiRateLimiter } from './middleware/rateLimiter';
+import { verifyCloudinaryConfig } from './config/cloudinary';
 
 // Load environment variables
 dotenv.config();
@@ -19,6 +20,9 @@ const PORT = process.env.PORT || 5000;
 
 // Connect to MongoDB
 connectDB();
+
+// Verify Cloudinary configuration
+verifyCloudinaryConfig();
 
 // Self-ping to prevent Render free instance from spinning down
 const RENDER_URL = process.env.RENDER_URL; // Add your Render URL to .env

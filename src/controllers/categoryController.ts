@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Category } from '../models/Category';
 import { Product } from '../models/Product';
 import { sendSuccessResponse, sendErrorResponse } from '../utils/helpers';
+import { transformProducts } from '../utils/productTransformer';
 
 class CategoryController {
   async getAllCategories(req: Request, res: Response): Promise<void> {
@@ -199,7 +200,7 @@ class CategoryController {
       const pages = Math.ceil(total / limit);
 
       const responseData = {
-        products,
+        products: transformProducts(products),
         category,
         pagination: {
           total,
