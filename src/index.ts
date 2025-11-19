@@ -23,14 +23,34 @@ connectDB();
 // Middleware
 app.use(helmet()); // Security headers
 app.use(compression()); // Gzip compression
+
+// CORS Configuration - supports multiple origins
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:3000',
+  'http://localhost:8080', // Vite dev server
+  'http://localhost:5173', // Alternative Vite dev server port
+  process.env.ADMIN_URL || 'http://localhost:3001',
+  'https://www.udehglobal.com',
+  'https://udehglobal.com',
+].filter(Boolean); // Remove any undefined values
+
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'http://localhost:8080', // Vite dev server
-    process.env.ADMIN_URL || 'http://localhost:3001'
-  ],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Guest-ID'],
 }));
+
 app.use(morgan('combined')); // Logging
 app.use(express.json({ limit: '10mb' })); // Body parser for JSON
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Body parser for URL encoded
