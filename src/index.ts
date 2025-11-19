@@ -20,6 +20,23 @@ const PORT = process.env.PORT || 5000;
 // Connect to MongoDB
 connectDB();
 
+// Self-ping to prevent Render free instance from spinning down
+const RENDER_URL = process.env.RENDER_URL; // Add your Render URL to .env
+if (RENDER_URL && process.env.NODE_ENV === 'production') {
+  const PING_INTERVAL = 14 * 60 * 1000; // 14 minutes
+  
+  setInterval(async () => {
+    try {
+      const response = await fetch(`${RENDER_URL}/health`);
+      console.log(`✅ Self-ping successful: ${response.status}`);
+    } catch (error) {
+      console.error('❌ Self-ping failed:', error);
+    }
+  }, PING_INTERVAL);
+  
+  console.log('🔄 Self-ping mechanism enabled to prevent instance spin-down');
+}
+
 // Middleware
 app.use(helmet()); // Security headers
 app.use(compression()); // Gzip compression
