@@ -184,14 +184,16 @@ class CartController {
       await cart.save();
 
       // Populate and return updated cart
-      await (cart as any).populate({
-        path: 'items.product',
-        select: 'name slug price stockQuantity images isActive',
-        populate: {
-          path: 'category',
-          select: 'name slug'
+      await (cart as any).populate([
+        {
+          path: 'items.product',
+          select: 'name slug price stockQuantity images isActive',
+          populate: {
+            path: 'category',
+            select: 'name slug'
+          }
         }
-      });
+      ]);
 
       sendSuccessResponse(res, {
         cart: {
@@ -214,7 +216,8 @@ class CartController {
       // Check validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return sendErrorResponse(res, 'Validation failed', 400, errors.array());
+        sendErrorResponse(res, 'Validation failed', 400, errors.array());
+        return;
       }
 
       const { productId } = req.params;
@@ -229,13 +232,15 @@ class CartController {
         // Guest user
         const guestId = req.guestId;
         if (!guestId) {
-          return sendErrorResponse(res, 'Guest ID required', 400);
+          sendErrorResponse(res, 'Guest ID required', 400);
+          return;
         }
         cart = await GuestCart.findOne({ guestId });
       }
 
       if (!cart) {
-        return sendErrorResponse(res, 'Cart not found', 404);
+        sendErrorResponse(res, 'Cart not found', 404);
+        return;
       }
 
       // Check if item exists in cart
@@ -245,7 +250,8 @@ class CartController {
       );
 
       if (!itemExists) {
-        return sendErrorResponse(res, 'Item not found in cart', 404);
+        sendErrorResponse(res, 'Item not found in cart', 404);
+        return;
       }
 
       if (quantity === 0) {
@@ -255,20 +261,23 @@ class CartController {
         // Verify product stock before updating
         const product = await Product.findById(productId);
         if (!product || !product.isActive) {
-          return sendErrorResponse(res, 'Product not found or unavailable', 404);
+          sendErrorResponse(res, 'Product not found or unavailable', 404);
+          return;
         }
 
         let availableStock = product.stockQuantity;
         if (variantId) {
-          const variant = product.variants.id(variantId);
+          const variant = product.variants.find(v => v._id?.toString() === variantId);
           if (!variant) {
-            return sendErrorResponse(res, 'Product variant not found', 404);
+            sendErrorResponse(res, 'Product variant not found', 404);
+            return;
           }
           availableStock = variant.stockQuantity;
         }
 
         if (availableStock < quantity) {
-          return sendErrorResponse(res, `Insufficient stock. Available: ${availableStock}`, 400);
+          sendErrorResponse(res, `Insufficient stock. Available: ${availableStock}`, 400);
+          return;
         }
 
         // Update quantity
@@ -278,14 +287,16 @@ class CartController {
       await cart.save();
 
       // Populate and return updated cart
-      await cart.populate({
-        path: 'items.product',
-        select: 'name slug price stockQuantity images isActive',
-        populate: {
-          path: 'category',
-          select: 'name slug'
+      await (cart as any).populate([
+        {
+          path: 'items.product',
+          select: 'name slug price stockQuantity images isActive',
+          populate: {
+            path: 'category',
+            select: 'name slug'
+          }
         }
-      });
+      ]);
 
       sendSuccessResponse(res, {
         cart: {
@@ -317,13 +328,15 @@ class CartController {
         // Guest user
         const guestId = req.guestId;
         if (!guestId) {
-          return sendErrorResponse(res, 'Guest ID required', 400);
+          sendErrorResponse(res, 'Guest ID required', 400);
+          return;
         }
         cart = await GuestCart.findOne({ guestId });
       }
 
       if (!cart) {
-        return sendErrorResponse(res, 'Cart not found', 404);
+        sendErrorResponse(res, 'Cart not found', 404);
+        return;
       }
 
       // Check if item exists in cart
@@ -333,7 +346,8 @@ class CartController {
       );
 
       if (!itemExists) {
-        return sendErrorResponse(res, 'Item not found in cart', 404);
+        sendErrorResponse(res, 'Item not found in cart', 404);
+        return;
       }
 
       await cart.removeItem(
@@ -343,14 +357,16 @@ class CartController {
       await cart.save();
 
       // Populate and return updated cart
-      await cart.populate({
-        path: 'items.product',
-        select: 'name slug price stockQuantity images isActive',
-        populate: {
-          path: 'category',
-          select: 'name slug'
+      await (cart as any).populate([
+        {
+          path: 'items.product',
+          select: 'name slug price stockQuantity images isActive',
+          populate: {
+            path: 'category',
+            select: 'name slug'
+          }
         }
-      });
+      ]);
 
       sendSuccessResponse(res, {
         cart: {
@@ -379,13 +395,15 @@ class CartController {
         // Guest user
         const guestId = req.guestId;
         if (!guestId) {
-          return sendErrorResponse(res, 'Guest ID required', 400);
+          sendErrorResponse(res, 'Guest ID required', 400);
+          return;
         }
         cart = await GuestCart.findOne({ guestId });
       }
 
       if (!cart) {
-        return sendErrorResponse(res, 'Cart not found', 404);
+        sendErrorResponse(res, 'Cart not found', 404);
+        return;
       }
 
       await cart.clear();
@@ -413,7 +431,7 @@ class CartController {
       const { guestCartItems } = req.body;
 
       if (!guestCartItems || !Array.isArray(guestCartItems)) {
-        return sendErrorResponse(res, 'Invalid guest cart items', 400);
+        sendErrorResponse(res, 'Invalid guest cart items', 400);
       }
 
       // Find or create user cart
@@ -438,7 +456,7 @@ class CartController {
         // Check stock availability
         let availableStock = product.stockQuantity;
         if (variantId) {
-          const variant = product.variants.id(variantId);
+          const variant = product.variants.find(v => v._id?.toString() === variantId);
           if (!variant) continue;
           availableStock = variant.stockQuantity;
         }
@@ -456,14 +474,16 @@ class CartController {
       await cart.save();
 
       // Populate and return merged cart
-      await cart.populate({
-        path: 'items.product',
-        select: 'name slug price stockQuantity images isActive',
-        populate: {
-          path: 'category',
-          select: 'name slug'
+      await (cart as any).populate([
+        {
+          path: 'items.product',
+          select: 'name slug price stockQuantity images isActive',
+          populate: {
+            path: 'category',
+            select: 'name slug'
+          }
         }
-      });
+      ]);
 
       sendSuccessResponse(res, {
         cart: {

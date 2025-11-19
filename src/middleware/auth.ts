@@ -3,10 +3,15 @@ import { verifyToken, JWTPayload } from '../utils/jwt';
 import { User } from '../models/User';
 import { sendErrorResponse } from '../utils/helpers';
 
+// Extend Request with all Express properties explicitly
 export interface AuthenticatedRequest extends Request {
   user?: any; // Will be populated with user data
   guestId?: string; // For guest cart management
   files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
+  body: any;
+  params: any;
+  query: any;
+  headers: any;
 }
 
 // Main authentication middleware

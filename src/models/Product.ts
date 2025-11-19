@@ -8,6 +8,7 @@ export interface IProductImage {
 }
 
 export interface IProductVariant {
+  _id?: mongoose.Types.ObjectId;
   variantType: string; // 'size', 'color', 'material'
   variantValue: string;
   priceAdjustment: number;
