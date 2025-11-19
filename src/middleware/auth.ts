@@ -6,6 +6,7 @@ import { sendErrorResponse } from '../utils/helpers';
 export interface AuthenticatedRequest extends Request {
   user?: any; // Will be populated with user data
   guestId?: string; // For guest cart management
+  files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
 }
 
 // Main authentication middleware
