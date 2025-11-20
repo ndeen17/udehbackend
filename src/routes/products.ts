@@ -14,6 +14,11 @@ router.get('/', productController.getAllProducts);
 // @access  Public
 router.get('/search', productController.searchProducts);
 
+// @route   GET /api/products/suggestions
+// @desc    Get search suggestions/autocomplete
+// @access  Public
+router.get('/suggestions', productController.getSearchSuggestions);
+
 // @route   GET /api/products/featured
 // @desc    Get featured products
 // @access  Public

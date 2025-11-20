@@ -103,14 +103,22 @@ class ProductController {
       const query = req.query.q as string;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
+      const sortBy = req.query.sortBy as string || 'relevance';
+      
+      // Advanced filters
+      const category = req.query.category as string;
+      const minPrice = parseFloat(req.query.minPrice as string);
+      const maxPrice = parseFloat(req.query.maxPrice as string);
+      const minRating = parseFloat(req.query.minRating as string);
+      const inStock = req.query.inStock === 'true';
 
       if (!query) {
         sendErrorResponse(res, 'Search query is required', 400);
         return;
       }
 
-      // Build search query
-      const searchQuery = {
+      // Build search query with text search for better relevance
+      const searchQuery: any = {
         isActive: true,
         $or: [
           { name: { $regex: query, $options: 'i' } },
@@ -119,11 +127,56 @@ class ProductController {
         ]
       };
 
+      // Apply filters
+      if (category) {
+        const categoryDoc = await Category.findOne({ slug: category });
+        if (categoryDoc) {
+          searchQuery.category = categoryDoc._id;
+        }
+      }
+
+      if (!isNaN(minPrice) || !isNaN(maxPrice)) {
+        searchQuery.price = {};
+        if (!isNaN(minPrice)) searchQuery.price.$gte = minPrice;
+        if (!isNaN(maxPrice)) searchQuery.price.$lte = maxPrice;
+      }
+
+      if (!isNaN(minRating)) {
+        searchQuery.averageRating = { $gte: minRating };
+      }
+
+      if (inStock) {
+        searchQuery.stock = { $gt: 0 };
+      }
+
+      // Determine sort order
+      let sortOptions: any = {};
+      switch (sortBy) {
+        case 'price-low':
+          sortOptions = { price: 1 };
+          break;
+        case 'price-high':
+          sortOptions = { price: -1 };
+          break;
+        case 'rating':
+          sortOptions = { averageRating: -1, reviewCount: -1 };
+          break;
+        case 'newest':
+          sortOptions = { createdAt: -1 };
+          break;
+        case 'name':
+          sortOptions = { name: 1 };
+          break;
+        default: // relevance
+          // Calculate relevance score based on match position
+          sortOptions = { name: 1 };
+      }
+
       // Get products with pagination
       const [products, total] = await Promise.all([
         Product.find(searchQuery)
           .populate('category', 'name slug')
-          .sort({ name: 1 })
+          .sort(sortOptions)
           .limit(limit)
           .skip((page - 1) * limit)
           .lean(),
@@ -132,18 +185,100 @@ class ProductController {
 
       const pages = Math.ceil(total / limit);
 
+      // Get available filters for refinement
+      const [categories, priceRange] = await Promise.all([
+        Product.distinct('category', { ...searchQuery, category: { $exists: true } })
+          .then(ids => Category.find({ _id: { $in: ids } }, 'name slug').lean()),
+        Product.aggregate([
+          { $match: searchQuery },
+          {
+            $group: {
+              _id: null,
+              minPrice: { $min: '$price' },
+              maxPrice: { $max: '$price' }
+            }
+          }
+        ])
+      ]);
+
       const responseData = {
         products: transformProducts(products),
         total,
         pages,
         currentPage: page,
-        query
+        query,
+        filters: {
+          categories: categories || [],
+          priceRange: priceRange[0] || { minPrice: 0, maxPrice: 0 }
+        }
       };
 
       sendSuccessResponse(res, responseData, 'Search completed successfully');
     } catch (error: any) {
       console.error('Search error:', error);
       sendErrorResponse(res, 'Search failed', 500);
+    }
+  }
+
+  // Get search suggestions/autocomplete
+  async getSearchSuggestions(req: Request, res: Response): Promise<void> {
+    try {
+      const query = req.query.q as string;
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      if (!query || query.length < 2) {
+        sendSuccessResponse(res, { suggestions: [] }, 'Suggestions retrieved');
+        return;
+      }
+
+      // Get product name suggestions
+      const productSuggestions = await Product.find({
+        isActive: true,
+        name: { $regex: query, $options: 'i' }
+      })
+        .select('name')
+        .limit(limit)
+        .lean();
+
+      // Get category suggestions
+      const categorySuggestions = await Category.find({
+        name: { $regex: query, $options: 'i' }
+      })
+        .select('name slug')
+        .limit(5)
+        .lean();
+
+      // Get tag suggestions
+      const tagSuggestions = await Product.aggregate([
+        { $match: { isActive: true, tags: { $regex: query, $options: 'i' } } },
+        { $unwind: '$tags' },
+        { $match: { tags: { $regex: query, $options: 'i' } } },
+        { $group: { _id: '$tags' } },
+        { $limit: 5 }
+      ]);
+
+      const suggestions = {
+        products: productSuggestions.map(p => ({
+          type: 'product',
+          text: p.name,
+          value: p.name
+        })),
+        categories: categorySuggestions.map(c => ({
+          type: 'category',
+          text: c.name,
+          value: c.slug
+        })),
+        tags: tagSuggestions.map(t => ({
+          type: 'tag',
+          text: t._id,
+          value: t._id
+        }))
+      };
+
+      sendSuccessResponse(res, suggestions, 'Suggestions retrieved successfully');
+    } catch (error: any) {
+      console.error('Suggestions error:', error);
+      sendErrorResponse(res, 'Failed to get suggestions', 500);
     }
   }
 

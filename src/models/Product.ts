@@ -39,6 +39,8 @@ export interface IProduct extends Document {
   tags: string[];
   seoTitle?: string;
   seoDescription?: string;
+  averageRating: number;
+  reviewCount: number;
   createdAt: Date;
   updatedAt: Date;
   
@@ -46,6 +48,7 @@ export interface IProduct extends Document {
   isInStock(): boolean;
   getDiscountPercentage(): number;
   getPrimaryImage(): IProductImage | null;
+  updateReviewStats(): Promise<void>;
 }
 
 const productImageSchema = new Schema<IProductImage>({
@@ -189,6 +192,17 @@ const productSchema = new Schema<IProduct>({
     type: String,
     trim: true,
     maxlength: [500, 'SEO description cannot exceed 500 characters']
+  },
+  averageRating: {
+    type: Number,
+    default: 0,
+    min: [0, 'Average rating cannot be negative'],
+    max: [5, 'Average rating cannot exceed 5']
+  },
+  reviewCount: {
+    type: Number,
+    default: 0,
+    min: [0, 'Review count cannot be negative']
   }
 }, {
   timestamps: true,
@@ -235,5 +249,36 @@ productSchema.virtual('totalStock').get(function() {
   }, 0);
   return this.stockQuantity + variantStock;
 });
+
+// Instance method to update review statistics
+productSchema.methods.updateReviewStats = async function(): Promise<void> {
+  const Review = mongoose.model('Review');
+  
+  const stats = await Review.aggregate([
+    {
+      $match: {
+        product: this._id,
+        isApproved: true
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        averageRating: { $avg: '$rating' },
+        reviewCount: { $sum: 1 }
+      }
+    }
+  ]);
+
+  if (stats.length > 0) {
+    this.averageRating = Math.round(stats[0].averageRating * 10) / 10; // Round to 1 decimal
+    this.reviewCount = stats[0].reviewCount;
+  } else {
+    this.averageRating = 0;
+    this.reviewCount = 0;
+  }
+
+  await this.save();
+};
 
 export const Product = mongoose.model<IProduct>('Product', productSchema);

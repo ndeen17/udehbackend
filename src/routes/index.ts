@@ -6,6 +6,7 @@ import cartRoutes from './cart';
 import orderRoutes from './orders';
 import userRoutes from './users';
 import adminRoutes from './admin';
+import reviewRoutes from './reviewRoutes';
 
 const router = Router();
 
@@ -17,6 +18,7 @@ router.use('/cart', cartRoutes);
 router.use('/orders', orderRoutes);
 router.use('/users', userRoutes);
 router.use('/admin', adminRoutes);
+router.use('/', reviewRoutes); // Review routes include /products/:id/reviews
 
 // Health check
 router.get('/health', (req, res) => {

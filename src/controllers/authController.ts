@@ -5,6 +5,7 @@ import { generateToken, generateRefreshToken, verifyRefreshToken } from '../util
 import { sendSuccessResponse, sendErrorResponse } from '../utils/helpers';
 import { validationResult } from 'express-validator';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { emailService } from '../services/emailService';
 
 class AuthController {
   // Register new user
@@ -42,6 +43,20 @@ class AuthController {
       });
 
       await user.save();
+
+      // Generate email verification token
+      const verificationToken = Math.random().toString(36).substring(2, 15);
+      user.emailVerificationToken = verificationToken;
+      await user.save();
+
+      // Send welcome email with verification link
+      try {
+        await emailService.sendWelcomeEmail(email, firstName || email, verificationToken);
+        console.log(`Welcome email sent to: ${email}`);
+      } catch (emailError) {
+        console.error('Failed to send welcome email:', emailError);
+        // Don't fail registration if email fails
+      }
 
       // Generate tokens
       const accessToken = generateToken(user._id.toString(), user.role);
@@ -196,8 +211,9 @@ class AuthController {
       (user as any).resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour
       await user.save();
 
-      // TODO: Send email with reset token
-      console.log(`Password reset token for ${email}: ${resetToken}`);
+      // Send password reset email
+      await emailService.sendPasswordResetEmail(email, user.firstName || email, resetToken);
+      console.log(`Password reset email sent to: ${email}`);
 
       sendSuccessResponse(res, null, 'If the email exists, a reset link has been sent');
 
@@ -261,9 +277,30 @@ class AuthController {
 
       user.emailVerified = true;
       user.emailVerificationToken = undefined;
+      user.lastLogin = new Date();
       await user.save();
 
-      sendSuccessResponse(res, null, 'Email verified successfully');
+      // Generate tokens for auto-login
+      const accessToken = generateToken(user._id.toString(), user.role);
+      const refreshToken = generateRefreshToken(user._id.toString());
+
+      // Return user data with tokens
+      const userData = {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+        role: user.role,
+        isActive: user.isActive,
+        emailVerified: user.emailVerified
+      };
+
+      sendSuccessResponse(res, {
+        user: userData,
+        accessToken,
+        refreshToken
+      }, 'Email verified successfully');
 
     } catch (error: any) {
       console.error('Email verification error:', error);
@@ -292,8 +329,9 @@ class AuthController {
       user.emailVerificationToken = verificationToken;
       await user.save();
 
-      // TODO: Send verification email
-      console.log(`Email verification token for ${email}: ${verificationToken}`);
+      // Send verification email
+      await emailService.sendWelcomeEmail(email, user.firstName || email, verificationToken);
+      console.log(`Verification email sent to: ${email}`);
 
       sendSuccessResponse(res, null, 'Verification email sent');
 
