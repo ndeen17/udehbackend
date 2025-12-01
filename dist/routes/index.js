@@ -11,6 +11,7 @@ const cart_1 = __importDefault(require("./cart"));
 const orders_1 = __importDefault(require("./orders"));
 const users_1 = __importDefault(require("./users"));
 const admin_1 = __importDefault(require("./admin"));
+const reviewRoutes_1 = __importDefault(require("./reviewRoutes"));
 const router = (0, express_1.Router)();
 router.use('/auth', auth_1.default);
 router.use('/categories', categories_1.default);
@@ -19,6 +20,7 @@ router.use('/cart', cart_1.default);
 router.use('/orders', orders_1.default);
 router.use('/users', users_1.default);
 router.use('/admin', admin_1.default);
+router.use('/', reviewRoutes_1.default);
 router.get('/health', (req, res) => {
     res.status(200).json({
         status: 'OK',

@@ -6,6 +6,7 @@ const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 router.get('/', productController_1.productController.getAllProducts);
 router.get('/search', productController_1.productController.searchProducts);
+router.get('/suggestions', productController_1.productController.getSearchSuggestions);
 router.get('/featured', productController_1.productController.getFeaturedProducts);
 router.get('/:slug', auth_1.optionalAuth, productController_1.productController.getProductBySlug);
 router.get('/:id/variants', productController_1.productController.getProductVariants);

@@ -12,20 +12,52 @@ const compression_1 = __importDefault(require("compression"));
 const path_1 = __importDefault(require("path"));
 const database_1 = __importDefault(require("./config/database"));
 const rateLimiter_1 = require("./middleware/rateLimiter");
+const cloudinary_1 = require("./config/cloudinary");
 dotenv_1.default.config();
 const index_1 = __importDefault(require("./routes/index"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 (0, database_1.default)();
+(0, cloudinary_1.verifyCloudinaryConfig)();
+const RENDER_URL = process.env.RENDER_URL;
+if (RENDER_URL && process.env.NODE_ENV === 'production') {
+    const PING_INTERVAL = 14 * 60 * 1000;
+    setInterval(async () => {
+        try {
+            const response = await fetch(`${RENDER_URL}/health`);
+            console.log(`✅ Self-ping successful: ${response.status}`);
+        }
+        catch (error) {
+            console.error('❌ Self-ping failed:', error);
+        }
+    }, PING_INTERVAL);
+    console.log('🔄 Self-ping mechanism enabled to prevent instance spin-down');
+}
 app.use((0, helmet_1.default)());
 app.use((0, compression_1.default)());
+const allowedOrigins = [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'http://localhost:8080',
+    'http://localhost:5173',
+    process.env.ADMIN_URL || 'http://localhost:3001',
+    'https://www.udehglobal.com',
+    'https://udehglobal.com',
+].filter(Boolean);
 app.use((0, cors_1.default)({
-    origin: [
-        process.env.FRONTEND_URL || 'http://localhost:3000',
-        'http://localhost:8080',
-        process.env.ADMIN_URL || 'http://localhost:3001'
-    ],
+    origin: (origin, callback) => {
+        if (!origin)
+            return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        }
+        else {
+            console.warn(`CORS blocked request from origin: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Guest-ID'],
 }));
 app.use((0, morgan_1.default)('combined'));
 app.use(express_1.default.json({ limit: '10mb' }));

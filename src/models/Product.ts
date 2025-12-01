@@ -212,7 +212,6 @@ const productSchema = new Schema<IProduct>({
 
 // Indexes
 productSchema.index({ category: 1 });
-productSchema.index({ slug: 1 });
 productSchema.index({ isActive: 1 });
 productSchema.index({ isFeatured: 1 });
 productSchema.index({ price: 1 });

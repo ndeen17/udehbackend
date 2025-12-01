@@ -331,19 +331,23 @@ class AdminController {
       ]);
 
       const formattedProducts = products.map((product: any) => ({
-        id: product._id,
+        _id: product._id,
         name: product.name,
+        slug: product.slug,
         category: product.category?.name || 'Uncategorized',
         price: product.price,
-        stock: product.stockQuantity,
-        status: product.isActive ? 'active' : 'inactive',
-        featured: product.isFeatured,
-        rating: 4.5, // Will be calculated from reviews later
-        reviews: 0, // Will be calculated from reviews later
+        comparePrice: product.comparePrice,
+        stockQuantity: product.stockQuantity,
+        isActive: product.isActive,
+        isFeatured: product.isFeatured,
+        averageRating: product.averageRating || 0,
+        reviewCount: product.reviewCount || 0,
         createdAt: product.createdAt,
         updatedAt: product.updatedAt,
         images: product.images,
-        description: product.description
+        description: product.description,
+        tags: product.tags,
+        variants: product.variants
       }));
 
       sendSuccessResponse(res, {
@@ -426,6 +430,11 @@ class AdminController {
         return;
       }
 
+      // Prevent category from being changed on existing products
+      if (updateData.category) {
+        delete updateData.category;
+      }
+
       const product = await Product.findByIdAndUpdate(
         id,
         updateData,
@@ -501,6 +510,12 @@ class AdminController {
       const { id } = req.params;
       const files = req.files as { [fieldname: string]: Express.Multer.File[] } | Express.Multer.File[];
 
+      console.log('Upload images request received');
+      console.log('Product ID:', id);
+      console.log('Files received:', files);
+      console.log('Files type:', typeof files);
+      console.log('Is array:', Array.isArray(files));
+
       if (!mongoose.Types.ObjectId.isValid(id)) {
         sendErrorResponse(res, 'Invalid product ID', 400);
         return;
@@ -512,6 +527,13 @@ class AdminController {
         return;
       }
 
+      console.log('Product found:', product.name);
+
+      if (!files || (Array.isArray(files) && files.length === 0)) {
+        sendErrorResponse(res, 'No files uploaded', 400);
+        return;
+      }
+
       const newImages: IProductImage[] = [];
 
       // Import Cloudinary uploader
@@ -520,8 +542,15 @@ class AdminController {
       // Handle different file upload formats
       if (Array.isArray(files)) {
         // Single field array upload
+        console.log('Processing array of files:', files.length);
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
+          console.log(`Processing file ${i}:`, file.originalname, file.mimetype, 'buffer size:', file.buffer?.length);
+          
+          if (!file.buffer) {
+            throw new Error(`File ${i} has no buffer - multer storage might not be configured correctly`);
+          }
+          
           try {
             // Upload to Cloudinary
             const uploadResult = await uploadToCloudinary(file.buffer, {
@@ -545,8 +574,18 @@ class AdminController {
         const primaryImages = files.primaryImage || [];
         const additionalImages = files.additionalImages || [];
 
+        console.log('Processing multiple fields:');
+        console.log('Primary images:', primaryImages.length);
+        console.log('Additional images:', additionalImages.length);
+
         // Process primary image
         if (primaryImages.length > 0) {
+          console.log('Processing primary image:', primaryImages[0].originalname, primaryImages[0].mimetype);
+          
+          if (!primaryImages[0].buffer) {
+            throw new Error('Primary image has no buffer - multer storage might not be configured correctly');
+          }
+          
           try {
             const uploadResult = await uploadToCloudinary(primaryImages[0].buffer, {
               folder: 'udehglobal/products',
@@ -559,7 +598,7 @@ class AdminController {
             newImages.push({
               url: uploadResult.secure_url,
               altText: `${product.name} primary image`,
-              displayOrder: -1, // Primary image gets highest priority
+              displayOrder: 0,
               isPrimary: true
             });
           } catch (uploadError) {
@@ -608,6 +647,11 @@ class AdminController {
       }, 'Images uploaded successfully');
     } catch (error: any) {
       console.error('Upload images error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       sendErrorResponse(res, error.message || 'Failed to upload images', 500);
     }
   }
@@ -682,7 +726,7 @@ class AdminController {
           });
 
           return {
-            id: category._id,
+            _id: category._id,
             name: category.name,
             description: category.description,
             slug: category.slug,

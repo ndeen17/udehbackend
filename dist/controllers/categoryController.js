@@ -4,6 +4,7 @@ exports.categoryController = void 0;
 const Category_1 = require("../models/Category");
 const Product_1 = require("../models/Product");
 const helpers_1 = require("../utils/helpers");
+const productTransformer_1 = require("../utils/productTransformer");
 class CategoryController {
     async getAllCategories(req, res) {
         try {
@@ -167,7 +168,7 @@ class CategoryController {
             ]);
             const pages = Math.ceil(total / limit);
             const responseData = {
-                products,
+                products: (0, productTransformer_1.transformProducts)(products),
                 category,
                 pagination: {
                     total,

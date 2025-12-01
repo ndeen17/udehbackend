@@ -174,6 +174,17 @@ const productSchema = new mongoose_1.Schema({
         type: String,
         trim: true,
         maxlength: [500, 'SEO description cannot exceed 500 characters']
+    },
+    averageRating: {
+        type: Number,
+        default: 0,
+        min: [0, 'Average rating cannot be negative'],
+        max: [5, 'Average rating cannot exceed 5']
+    },
+    reviewCount: {
+        type: Number,
+        default: 0,
+        min: [0, 'Review count cannot be negative']
     }
 }, {
     timestamps: true,
@@ -181,7 +192,6 @@ const productSchema = new mongoose_1.Schema({
     toObject: { virtuals: true }
 });
 productSchema.index({ category: 1 });
-productSchema.index({ slug: 1 });
 productSchema.index({ isActive: 1 });
 productSchema.index({ isFeatured: 1 });
 productSchema.index({ price: 1 });
@@ -209,4 +219,31 @@ productSchema.virtual('totalStock').get(function () {
     }, 0);
     return this.stockQuantity + variantStock;
 });
+productSchema.methods.updateReviewStats = async function () {
+    const Review = mongoose_1.default.model('Review');
+    const stats = await Review.aggregate([
+        {
+            $match: {
+                product: this._id,
+                isApproved: true
+            }
+        },
+        {
+            $group: {
+                _id: null,
+                averageRating: { $avg: '$rating' },
+                reviewCount: { $sum: 1 }
+            }
+        }
+    ]);
+    if (stats.length > 0) {
+        this.averageRating = Math.round(stats[0].averageRating * 10) / 10;
+        this.reviewCount = stats[0].reviewCount;
+    }
+    else {
+        this.averageRating = 0;
+        this.reviewCount = 0;
+    }
+    await this.save();
+};
 exports.Product = mongoose_1.default.model('Product', productSchema);

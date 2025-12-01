@@ -9,6 +9,7 @@ const User_1 = require("../models/User");
 const jwt_1 = require("../utils/jwt");
 const helpers_1 = require("../utils/helpers");
 const express_validator_1 = require("express-validator");
+const emailService_1 = require("../services/emailService");
 class AuthController {
     async register(req, res) {
         try {
@@ -36,6 +37,16 @@ class AuthController {
                 emailVerified: false
             });
             await user.save();
+            const verificationToken = Math.random().toString(36).substring(2, 15);
+            user.emailVerificationToken = verificationToken;
+            await user.save();
+            try {
+                await emailService_1.emailService.sendWelcomeEmail(email, firstName || email, verificationToken);
+                console.log(`Welcome email sent to: ${email}`);
+            }
+            catch (emailError) {
+                console.error('Failed to send welcome email:', emailError);
+            }
             const accessToken = (0, jwt_1.generateToken)(user._id.toString(), user.role);
             const refreshToken = (0, jwt_1.generateRefreshToken)(user._id.toString());
             const userData = {
@@ -150,7 +161,8 @@ class AuthController {
             user.resetPasswordToken = resetToken;
             user.resetPasswordExpires = new Date(Date.now() + 3600000);
             await user.save();
-            console.log(`Password reset token for ${email}: ${resetToken}`);
+            await emailService_1.emailService.sendPasswordResetEmail(email, user.firstName || email, resetToken);
+            console.log(`Password reset email sent to: ${email}`);
             (0, helpers_1.sendSuccessResponse)(res, null, 'If the email exists, a reset link has been sent');
         }
         catch (error) {
@@ -196,8 +208,25 @@ class AuthController {
             }
             user.emailVerified = true;
             user.emailVerificationToken = undefined;
+            user.lastLogin = new Date();
             await user.save();
-            (0, helpers_1.sendSuccessResponse)(res, null, 'Email verified successfully');
+            const accessToken = (0, jwt_1.generateToken)(user._id.toString(), user.role);
+            const refreshToken = (0, jwt_1.generateRefreshToken)(user._id.toString());
+            const userData = {
+                id: user._id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                phone: user.phone,
+                role: user.role,
+                isActive: user.isActive,
+                emailVerified: user.emailVerified
+            };
+            (0, helpers_1.sendSuccessResponse)(res, {
+                user: userData,
+                accessToken,
+                refreshToken
+            }, 'Email verified successfully');
         }
         catch (error) {
             console.error('Email verification error:', error);
@@ -219,7 +248,8 @@ class AuthController {
             const verificationToken = Math.random().toString(36).substring(2);
             user.emailVerificationToken = verificationToken;
             await user.save();
-            console.log(`Email verification token for ${email}: ${verificationToken}`);
+            await emailService_1.emailService.sendWelcomeEmail(email, user.firstName || email, verificationToken);
+            console.log(`Verification email sent to: ${email}`);
             (0, helpers_1.sendSuccessResponse)(res, null, 'Verification email sent');
         }
         catch (error) {
